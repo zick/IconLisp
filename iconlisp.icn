@@ -3,7 +3,9 @@ global kRPar
 global kQuote
 global kNil
 global sym_table
+global sym_t
 global sym_quote
+global g_env
 
 procedure safeCar(obj)
     if obj["tag"] == "cons" then
@@ -185,6 +187,38 @@ procedure printList(obj)
         return "(" || ret || " . " || printObj(obj) || ")"
 end
 
+procedure findVar(sym, env)
+    local alist
+    while env["tag"] == "cons" do {
+        alist := env["car"]
+        while alist["tag"] == "cons" do {
+            if alist["car"]["car"] === sym then
+                return alist["car"]
+            alist := alist["cdr"]
+        }
+        env := env["cdr"]
+    }
+    return kNil
+end
+
+procedure addToEnv(sym, val, env)
+    env["car"] := makeCons(makeCons(sym, val), env["car"])
+end
+
+procedure eval(obj, env)
+    local tag, bind
+    tag := obj["tag"]
+    if tag == "nil" | tag == "num" | tag == "error" then
+        return obj
+    else if tag == "sym" then {
+        bind := findVar(obj, env)
+        if bind === kNil then
+            return makeError(obj["data"] || " has no value")
+        return bind["cdr"]
+    }
+    return makeError("noimpl")
+end
+
 procedure init()
     kLPar := "("
     kRPar := ")"
@@ -196,13 +230,17 @@ procedure init()
     sym_table := table(false)
     sym_table["nil"] := kNil
 
+    sym_t := makeSym("t")
     sym_quote := makeSym("quote")
+
+    g_env := makeCons(kNil, kNil)
+    addToEnv(sym_t, sym_t, g_env)
 end
 
 procedure main(args)
     local exp
     init()
     while (exp := read1(read())) do {
-        write(printObj(exp[1]))
+        write(printObj(eval(exp[1], g_env)))
     }
 end
