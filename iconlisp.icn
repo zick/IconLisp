@@ -1,0 +1,134 @@
+global kLPar
+global kRPar
+global kQuote
+global kNil
+global sym_table
+
+procedure safeCar(obj)
+    if obj["tag"] == "cons" then
+        return obj["car"]
+    else
+        return kNil
+end
+
+procedure safeCdr(obj)
+    if obj["tag"] == "cons" then
+        return obj["cdr"]
+    else
+        return kNil
+end
+
+procedure makeNum(num)
+    local obj
+    obj := table()
+    obj["tag"] := "num"
+    obj["data"] := num
+    return obj
+end
+
+procedure makeSym(str)
+    local obj
+    if /sym_table[str] then {
+        obj := table()
+        obj["tag"] := "sym"
+        obj["data"] := str
+        sym_table[str] := obj
+    }
+    return sym_table[str]
+end
+
+procedure makeError(str)
+    local obj
+    obj := table()
+    obj["tag"] := "error"
+    obj["data"] := str
+    return obj
+end
+
+procedure makeCons(a, d)
+    local obj
+    obj["tag"] = "cons"
+    obj["car"] = a
+    obj["cdr"] = d
+    return obj
+end
+
+procedure isSpace(c)
+    if c == "\t" | c == "\l" | c == "\n" | c == " " then
+        return c
+    else
+        fail
+end
+
+procedure isDelimiter(c)
+    if c == kLPar | c == kRPar | c == kQuote | isSpace(c) then
+        return c
+    else
+        fail
+end
+
+procedure skipSpaces(str)
+    local i
+    i := 1
+    while (str[i]) do {
+        if not isSpace(str[i]) then return str[i:0]
+        i +:= 1
+    }
+    return ""
+end
+
+procedure makeNumOrSym(str)
+    if integer(str) then
+        return makeNum(integer(str))
+    else
+        return makeSym(str)
+end
+
+procedure readAtom(str)
+    local nxt, i
+    nxt := ""
+    i := 1
+    while (str[i]) do {
+        if isDelimiter(str[i]) then {
+            nxt := str[i:0]
+            str := str[1:i]
+            break
+        }
+        i +:= 1
+    }
+    return [makeNumOrSym(str), nxt]
+end
+
+procedure read1(str)
+    str := skipSpaces(str)
+    if str == "" then
+        return [makeError("empty input"), ""]
+    else if str[1] == kRPar then
+        return [makeError("invalid syntax: " || str), ""]
+    else if str[1] == kLPar then
+        return [makeError("noimpl")]
+    else if str[1] == kQuote then
+        return [makeError("noimpl")]
+    else
+        return readAtom(str)
+end
+
+procedure init()
+    kLPar := "("
+    kRPar := ")"
+    kQuote := "'"
+
+    kNil := table()
+    kNil["tag"] := "nil";
+
+    sym_table := table(false)
+    sym_table["nil"] := kNil
+end
+
+procedure main(args)
+    local exp
+    init()
+    while (exp := read1(read())) do {
+        write(exp[1]["data"])
+    }
+end
