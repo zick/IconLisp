@@ -431,7 +431,9 @@ end
 procedure main(args)
     local exp
     init()
+    writes("> ")
     while (exp := read1(read())) do {
         write(printObj(eval(exp[1], g_env)))
+        writes("> ")
     }
 end
