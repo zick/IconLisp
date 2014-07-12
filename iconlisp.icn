@@ -5,6 +5,7 @@ global kNil
 global sym_table
 global sym_t
 global sym_quote
+global sym_if
 global g_env
 
 procedure safeCar(obj)
@@ -54,6 +55,14 @@ procedure makeCons(a, d)
     obj["tag"] := "cons"
     obj["car"] := a
     obj["cdr"] := d
+    return obj
+end
+
+procedure makeSubr(id)
+    local obj
+    obj := table()
+    obj["tag"] := "subr"
+    obj["id"] := id
     return obj
 end
 
@@ -206,7 +215,7 @@ procedure addToEnv(sym, val, env)
 end
 
 procedure eval(obj, env)
-    local tag, bind
+    local tag, bind, op, args, c
     tag := obj["tag"]
     if tag == "nil" | tag == "num" | tag == "error" then
         return obj
@@ -216,7 +225,65 @@ procedure eval(obj, env)
             return makeError(obj["data"] || " has no value")
         return bind["cdr"]
     }
-    return makeError("noimpl")
+    op := safeCar(obj)
+    args := safeCdr(obj)
+    if op === sym_quote then
+        return safeCar(args)
+    else if op === sym_if then {
+        c := eval(safeCar(args), env)
+        if c["tag"] == "error" then return c
+        else if c === kNil then
+            return eval(safeCar(safeCdr(safeCdr(args))), env)
+        else
+            return eval(safeCar(safeCdr(args)), env)
+    }
+    return apply(eval(op, env), evlis(args, env))
+end
+
+procedure evlis(lst, env)
+    local ret, elm
+    ret := kNil
+    while (lst["tag"] == "cons") do {
+        elm := eval(lst["car"], env)
+        if elm["tag"] == "error" then return elm
+        ret := makeCons(elm, ret)
+        lst := lst["cdr"]
+    }
+    return nreverse(ret)
+end
+
+procedure apply(fn, args)
+    if fn["tag"] == "error" then
+        return fn
+    else if args["tag"] == "error" then
+        return args
+    else if fn["tag"] == "subr" then
+        return subrCall(fn["id"], args)
+    else
+        return makeError(printObj(fn) || " is not function")
+end
+
+procedure subrCall(id, args)
+    if id = 1 then
+        return subrCar(args)
+    else if id = 2 then
+        return subrCdr(args)
+    else if id = 3 then
+        return subrCons(args)
+    else
+        return makeError("unknown subr")
+end
+
+procedure subrCar(args)
+    return safeCar(safeCar(args))
+end
+
+procedure subrCdr(args)
+    return safeCdr(safeCar(args))
+end
+
+procedure subrCons(args)
+    return makeCons(safeCar(args), safeCar(safeCdr(args)))
 end
 
 procedure init()
@@ -232,9 +299,13 @@ procedure init()
 
     sym_t := makeSym("t")
     sym_quote := makeSym("quote")
+    sym_if := makeSym("if")
 
     g_env := makeCons(kNil, kNil)
     addToEnv(sym_t, sym_t, g_env)
+    addToEnv(makeSym("car"), makeSubr(1), g_env)
+    addToEnv(makeSym("cdr"), makeSubr(2), g_env)
+    addToEnv(makeSym("cons"), makeSubr(3), g_env)
 end
 
 procedure main(args)
