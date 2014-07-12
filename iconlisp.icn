@@ -6,6 +6,7 @@ global sym_table
 global sym_t
 global sym_quote
 global sym_if
+global sym_lambda
 global g_env
 
 procedure safeCar(obj)
@@ -66,6 +67,16 @@ procedure makeSubr(id)
     return obj
 end
 
+procedure makeExpr(args, env)
+    local obj
+    obj := table()
+    obj["tag"] := "expr"
+    obj["args"] := safeCar(args)
+    obj["body"] := safeCdr(args)
+    obj["env"] := env
+    return obj
+end
+
 procedure nreverse(lst)
     local ret, tmp
     ret := kNil
@@ -76,6 +87,17 @@ procedure nreverse(lst)
         lst := tmp
     }
     return ret
+end
+
+procedure pairlis(lst1, lst2)
+    local ret
+    ret := kNil
+    while lst1["tag"] == "cons" & lst2["tag"] == "cons" do {
+        ret := makeCons(makeCons(lst1["car"], lst2["car"]), ret)
+        lst1 := lst1["cdr"]
+        lst2 := lst2["cdr"]
+    }
+    return nreverse(ret)
 end
 
 procedure isSpace(c)
@@ -237,6 +259,8 @@ procedure eval(obj, env)
         else
             return eval(safeCar(safeCdr(args)), env)
     }
+    else if op === sym_lambda then
+        return makeExpr(args, env)
     return apply(eval(op, env), evlis(args, env))
 end
 
@@ -252,6 +276,15 @@ procedure evlis(lst, env)
     return nreverse(ret)
 end
 
+procedure progn(body, env)
+    local ret
+    while body["tag"] == "cons" do {
+        ret := eval(body["car"], env)
+        body := body["cdr"]
+    }
+    return ret
+end
+
 procedure apply(fn, args)
     if fn["tag"] == "error" then
         return fn
@@ -259,6 +292,8 @@ procedure apply(fn, args)
         return args
     else if fn["tag"] == "subr" then
         return subrCall(fn["id"], args)
+    else if fn["tag"] == "expr" then
+        return progn(fn["body"], makeCons(pairlis(fn["args"], args), fn["env"]))
     else
         return makeError(printObj(fn) || " is not function")
 end
@@ -300,6 +335,7 @@ procedure init()
     sym_t := makeSym("t")
     sym_quote := makeSym("quote")
     sym_if := makeSym("if")
+    sym_lambda := makeSym("lambda")
 
     g_env := makeCons(kNil, kNil)
     addToEnv(sym_t, sym_t, g_env)
