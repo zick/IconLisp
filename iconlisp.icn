@@ -323,8 +323,34 @@ procedure subrCall(id, args)
         return subrCdr(args)
     else if id = 3 then
         return subrCons(args)
+    else if id = 4 then
+        return subrEq(args)
+    else if id = 5 then
+        return subrAtom(args)
+    else if id = 6 then
+        return subrNumberp(args)
+    else if id = 7 then
+        return subrSymbolp(args)
     else
-        return makeError("unknown subr")
+        return arithCall(id - 7, args)
+end
+
+procedure arithCall(id, args)
+    local x, y
+    x := safeCar(args)
+    y := safeCar(safeCdr(args))
+    if x["tag"] ~== "num" | y["tag"] ~== "num" then
+        return makeError("wrong type")
+    else if id = 1 then
+        return makeNum(x["data"] + y["data"])
+    else if id = 2 then
+        return makeNum(x["data"] * y["data"])
+    else if id = 3 then
+        return makeNum(x["data"] - y["data"])
+    else if id = 4 then
+        return makeNum(x["data"] / y["data"])
+    else if id = 5 then
+        return makeNum(x["data"] % y["data"])
 end
 
 procedure subrCar(args)
@@ -337,6 +363,35 @@ end
 
 procedure subrCons(args)
     return makeCons(safeCar(args), safeCar(safeCdr(args)))
+end
+
+procedure subrEq(args)
+    local x, y
+    x := safeCar(args)
+    y := safeCar(safeCdr(args))
+    if x["tag"] == "num" & x["tag"] == "num" & x["data"] = y["data"] then
+        return sym_t
+    else if x === y then
+        return sym_t
+    return kNil
+end
+
+procedure subrAtom(args)
+    if safeCar(args)["tag"] == "cons" then
+        return kNil
+    return sym_t
+end
+
+procedure subrNumberp(args)
+    if safeCar(args)["tag"] == "num" then
+        return sym_t
+    return kNil
+end
+
+procedure subrSymbolp(args)
+    if safeCar(args)["tag"] == "sym" then
+        return sym_t
+    return kNil
 end
 
 procedure init()
@@ -362,6 +417,15 @@ procedure init()
     addToEnv(makeSym("car"), makeSubr(1), g_env)
     addToEnv(makeSym("cdr"), makeSubr(2), g_env)
     addToEnv(makeSym("cons"), makeSubr(3), g_env)
+    addToEnv(makeSym("eq"), makeSubr(4), g_env)
+    addToEnv(makeSym("atom"), makeSubr(5), g_env)
+    addToEnv(makeSym("numberp"), makeSubr(6), g_env)
+    addToEnv(makeSym("symbolp"), makeSubr(7), g_env)
+    addToEnv(makeSym("+"), makeSubr(8), g_env)
+    addToEnv(makeSym("*"), makeSubr(9), g_env)
+    addToEnv(makeSym("-"), makeSubr(10), g_env)
+    addToEnv(makeSym("/"), makeSubr(11), g_env)
+    addToEnv(makeSym("mod"), makeSubr(12), g_env)
 end
 
 procedure main(args)
