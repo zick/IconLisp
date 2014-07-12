@@ -3,6 +3,7 @@ global kRPar
 global kQuote
 global kNil
 global sym_table
+global sym_quote
 
 procedure safeCar(obj)
     if obj["tag"] == "cons" then
@@ -47,10 +48,23 @@ end
 
 procedure makeCons(a, d)
     local obj
-    obj["tag"] = "cons"
-    obj["car"] = a
-    obj["cdr"] = d
+    obj := table()
+    obj["tag"] := "cons"
+    obj["car"] := a
+    obj["cdr"] := d
     return obj
+end
+
+procedure nreverse(lst)
+    local ret, tmp
+    ret := kNil
+    while lst["tag"] == "cons" do {
+        tmp := lst["cdr"]
+        lst["cdr"] := ret
+        ret := lst
+        lst := tmp
+    }
+    return ret
 end
 
 procedure isSpace(c)
@@ -100,17 +114,75 @@ procedure readAtom(str)
 end
 
 procedure read1(str)
+    local tmp
     str := skipSpaces(str)
     if str == "" then
         return [makeError("empty input"), ""]
     else if str[1] == kRPar then
         return [makeError("invalid syntax: " || str), ""]
     else if str[1] == kLPar then
-        return [makeError("noimpl")]
-    else if str[1] == kQuote then
-        return [makeError("noimpl")]
+        return readList(str[2:0])
+    else if str[1] == kQuote then {
+        tmp := read1(str[2:0])
+        return [makeCons(sym_quote, makeCons(tmp[1], kNil)), tmp[2]]
+    }
     else
         return readAtom(str)
+end
+
+procedure readList(str)
+    local ret, tmp
+    ret := kNil
+    while 1 do {
+        str := skipSpaces(str)
+        if str == "" then
+            return [makeError("unfinished parenthesis"), ""]
+        else if str[1] == kRPar then
+            break
+        tmp := read1(str)
+        if tmp[1]["tag"] == "error" then
+            return tmp
+        ret := makeCons(tmp[1], ret)
+        str := tmp[2]
+    }
+    return [nreverse(ret), str[2:0]]
+end
+
+procedure printObj(obj)
+    local tag
+    tag := obj["tag"]
+    if tag == "nil" then
+        return "nil"
+    else if tag == "num" | tag == "sym" then
+        return obj["data"]
+    else if tag == "error" then
+        return "<error: " || obj["data"] || ">"
+    else if tag == "cons" then
+        return printList(obj)
+    else if tag == "subr" then
+        return "<subr>"
+    else if tag == "expr" then
+        return "<expr>"
+    else
+        return "<unknown>"
+end
+
+procedure printList(obj)
+    local ret, first
+    ret := ""
+    first := 1
+    while obj["tag"] == "cons" do {
+        if first = 1 then
+            first := 0
+        else
+            ret ||:= " "
+        ret ||:= printObj(obj["car"])
+        obj := obj["cdr"]
+    }
+    if obj === kNil then
+        return "(" || ret || ")"
+    else
+        return "(" || ret || " . " || printObj(obj) || ")"
 end
 
 procedure init()
@@ -123,12 +195,14 @@ procedure init()
 
     sym_table := table(false)
     sym_table["nil"] := kNil
+
+    sym_quote := makeSym("quote")
 end
 
 procedure main(args)
     local exp
     init()
     while (exp := read1(read())) do {
-        write(exp[1]["data"])
+        write(printObj(exp[1]))
     }
 end
