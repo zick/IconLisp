@@ -7,6 +7,7 @@ global sym_t
 global sym_quote
 global sym_if
 global sym_lambda
+global sym_defun
 global g_env
 
 procedure safeCar(obj)
@@ -237,7 +238,7 @@ procedure addToEnv(sym, val, env)
 end
 
 procedure eval(obj, env)
-    local tag, bind, op, args, c
+    local tag, bind, op, args, c, expr, sym
     tag := obj["tag"]
     if tag == "nil" | tag == "num" | tag == "error" then
         return obj
@@ -261,6 +262,12 @@ procedure eval(obj, env)
     }
     else if op === sym_lambda then
         return makeExpr(args, env)
+    else if op === sym_defun then {
+        expr := makeExpr(safeCdr(args), env)
+        sym := safeCar(args)
+        addToEnv(sym, expr, g_env)
+        return sym
+    }
     return apply(eval(op, env), evlis(args, env))
 end
 
@@ -336,6 +343,7 @@ procedure init()
     sym_quote := makeSym("quote")
     sym_if := makeSym("if")
     sym_lambda := makeSym("lambda")
+    sym_defun := makeSym("defun")
 
     g_env := makeCons(kNil, kNil)
     addToEnv(sym_t, sym_t, g_env)
